@@ -4,13 +4,15 @@ use winit::event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEve
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{WindowBuilder, Icon};
 use image::GenericImageView;
-mod taskbar; use crate::taskbar::draw_taskbar;
+use std::thread;
+mod taskbar; use crate::taskbar::{draw_taskbar, save_framebuffer_as_png};
 mod constants; use crate::constants::*;
 mod paint; use crate::paint::paint;
+mod sound_track; use crate::sound_track::sound_track;
 
 fn main() -> Result<(), Error> {
     // Load the icon image
-    let icon_image = image::open("src/assets/ts.png").expect("Failed to open icon image");
+    let icon_image = image::open("assets/ts.png").expect("Failed to open icon image");
     let (icon_width, icon_height) = icon_image.dimensions();
     let icon_rgba = icon_image.into_rgba8();
     let icon = Icon::from_rgba(icon_rgba.into_raw(), icon_width, icon_height).expect("Failed to create icon");
@@ -36,6 +38,8 @@ fn main() -> Result<(), Error> {
     let mut left_button_pressed = false;
     let mut brush_size_modifier = 1;
     let mut current_colour = COLOURS[0]; // Red
+
+    thread::spawn(|| sound_track()); // Spawning the sound track thread
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -70,8 +74,8 @@ fn main() -> Result<(), Error> {
 // Mouse Input Handling :p
 
 fn resize(pixels: &mut Pixels, framebuffer: &mut Vec<u8>, size: &mut PhysicalSize<u32>, new_size: PhysicalSize<u32>) {
-    pixels.resize_surface(new_size.width, new_size.height);
-    pixels.resize_buffer(new_size.width, new_size.height);
+    pixels.resize_surface(new_size.width, new_size.height).expect("Failed to resize surface");
+    pixels.resize_buffer(new_size.width, new_size.height).expect("Failed to resize buffer");
     *framebuffer = vec![255; (new_size.width * new_size.height * 4) as usize];
     size.height = new_size.height;
     size.width = new_size.width;
@@ -82,10 +86,14 @@ fn handle_mouse_input(state: ElementState, button: MouseButton, left_button_pres
         if state == ElementState::Pressed {
             *left_button_pressed = true;
             let (x, y) = last_cursor_position;
-            if y >= (HEIGHT + TASKBAR_HEIGHT - BUTTON_SIZE) as i32 && y < (HEIGHT + TASKBAR_HEIGHT) as i32 {
+            let taskbar_start = height - TASKBAR_HEIGHT;
+            if y >= taskbar_start as i32 && y < height as i32 {
                 let button_index = (x / BUTTON_SIZE as i32) as usize;
                 if button_index < COLOURS.len() {
                     *current_colour = COLOURS[button_index];
+                } else if x >= (width - BUTTON_SIZE) as i32 {
+                    // Clicked on the white square
+                    save_framebuffer_as_png(framebuffer, width, height);
                 }
             } else {
                 paint(framebuffer, x, y, brush_size_modifier, width, height - TASKBAR_HEIGHT, *current_colour);
