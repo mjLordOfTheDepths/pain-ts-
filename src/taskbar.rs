@@ -4,6 +4,9 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use chrono::Local;
 
+// taslbar.rs
+//This module relates to the creation of the taskbar, and the save icon
+
 // Load the save icon image once and store it in a static variable
 static SAVE_ICON: Lazy<Mutex<ImageBuffer<Rgba<u8>, Vec<u8>>>> = Lazy::new(|| {
     let save_icon = image::open("assets/save.png").expect("Failed to open save icon image");
@@ -64,20 +67,56 @@ pub fn save_framebuffer_as_png(framebuffer: &Vec<u8>, width: u32, height: u32) {
 
     let mut buffer: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::new(new_width as u32, new_height as u32);
 
-    for y in 0..new_height {
+    for y in 0..new_height { // scanning image
         for x in 0..new_width {
             let src_index = (y * width as usize + x) * 4;
-            let pixel = Rgba([
+            let mut pixel = Rgba([
                 framebuffer[src_index],
                 framebuffer[src_index + 1],
                 framebuffer[src_index + 2],
                 framebuffer[src_index + 3],
             ]);
+
+            // check if the pixel is transparent
+            if pixel[0] == 255 && pixel[1] == 0 && pixel[2] == 255 {
+                pixel[3] = 0; // Set alpha to 0 (transparent)
+            }
+
             buffer.put_pixel(x as u32, y as u32, pixel);
+        }
+    }
+
+    // find content boundaries
+    let mut min_x = new_width;
+    let mut max_x = 0;
+    let mut min_y = new_height;
+    let mut max_y = 0;
+
+    for y in 0..new_height {
+        for x in 0..new_width {
+            let pixel = buffer.get_pixel(x as u32, y as u32);
+            if pixel[3] != 0 {
+                if x < min_x { min_x = x; }
+                if x > max_x { max_x = x; }
+                if y < min_y { min_y = y; }
+                if y > max_y { max_y = y; }
+            }
+        }
+    }
+
+    // crop the image to content
+    let cropped_width = max_x - min_x + 1;
+    let cropped_height = max_y - min_y + 1;
+    let mut cropped_buffer: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::new(cropped_width as u32, cropped_height as u32);
+
+    for y in 0..cropped_height {
+        for x in 0..cropped_width {
+            let pixel = buffer.get_pixel((min_x + x) as u32, (min_y + y) as u32);
+            cropped_buffer.put_pixel(x as u32, y as u32, *pixel);
         }
     }
 
     let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
     let file_path = format!("../my_pics/{}.png", timestamp);
-    buffer.save(file_path).unwrap();
+    cropped_buffer.save(file_path).unwrap();
 }

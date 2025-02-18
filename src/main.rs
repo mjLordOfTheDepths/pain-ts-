@@ -1,14 +1,25 @@
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, Event, MouseButton, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{WindowBuilder, Icon};
 use image::GenericImageView;
 use std::thread;
-mod taskbar; use crate::taskbar::{draw_taskbar, save_framebuffer_as_png};
+mod taskbar; use crate::taskbar::draw_taskbar;
 mod constants; use crate::constants::*;
 mod paint; use crate::paint::paint;
 mod sound_track; use crate::sound_track::sound_track;
+mod draw_screens; use crate::draw_screens::{draw_initial_screen, draw_white_screen};
+mod input; use crate::input::{resize, handle_mouse_input, move_cursor, scroll_wheel};
+
+enum AppState {
+    InitialScreen,
+    MainLoop,
+}
+
+// main.rs
+// This is the main file that runs the program
+// It also handles window setup and some minor event handling that didn't consitute a separate function
 
 fn main() -> Result<(), Error> {
     // Load the icon image
@@ -39,29 +50,76 @@ fn main() -> Result<(), Error> {
     let mut brush_size_modifier = 1;
     let mut current_colour = COLOURS[0]; // Red
 
+    let mut app_state = AppState::InitialScreen;
+
     thread::spawn(|| sound_track()); // Spawning the sound track thread
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        match event { // Monitoring activity
-            Event::WindowEvent { event, .. } => 
-                match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-
-                    WindowEvent::Resized(new_size) => {resize(&mut pixels, &mut framebuffer, &mut size, new_size);}
-
-                    WindowEvent::MouseInput { state, button, .. } => {handle_mouse_input(state, button, &mut left_button_pressed, last_cursor_position, &mut current_colour, &mut framebuffer, brush_size_modifier, size.width, size.height, &window);}
-                    
-                    WindowEvent::CursorMoved { position, .. } => {move_cursor(position, &mut last_cursor_position, left_button_pressed, &mut framebuffer, brush_size_modifier, size.width, size.height, current_colour, &window);}
-                    
-                    WindowEvent::MouseWheel { delta, .. } => {if let MouseScrollDelta::LineDelta(_, y) = delta {scroll_wheel(delta, &mut brush_size_modifier);}}
-                    
-                    _ => (),
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::Resized(new_size) => {
+                    resize(&mut pixels, &mut framebuffer, &mut size, new_size);
+                }
+                WindowEvent::MouseInput { state, button, .. } => {
+                    if let AppState::InitialScreen = app_state {
+                        if button == MouseButton::Left && state == ElementState::Pressed {
+                            let (x, y) = last_cursor_position;
+                            let rect_width = (size.width as f32 * 0.75) as i32;
+                            let rect_height = (size.height as f32 * 0.15) as i32;
+                            let rect_x = (size.width as i32 - rect_width) / 2;
+                            let rect_y = (size.height as i32 - rect_height) / 2;
+                            if x >= rect_x && x <= rect_x + rect_width && y >= rect_y && y <= rect_y + rect_height {
+                                app_state = AppState::MainLoop;
+                                draw_white_screen(&mut framebuffer, size.width, size.height);
+                            }
+                        }
+                    } else {
+                        handle_mouse_input(
+                            state,
+                            button,
+                            &mut left_button_pressed,
+                            last_cursor_position,
+                            &mut current_colour,
+                            &mut framebuffer,
+                            brush_size_modifier,
+                            size.width,
+                            size.height,
+                            &window,
+                        );
+                    }
+                }
+                WindowEvent::CursorMoved { position, .. } => {
+                    last_cursor_position = (position.x as i32, position.y as i32);
+                    if let AppState::MainLoop = app_state {
+                        move_cursor(
+                            position,
+                            &mut last_cursor_position,
+                            left_button_pressed,
+                            &mut framebuffer,
+                            brush_size_modifier,
+                            size.width,
+                            size.height,
+                            current_colour,
+                            &window,
+                        );
+                    }
+                }
+                WindowEvent::MouseWheel { delta, .. } => {
+                    if let AppState::MainLoop = app_state {
+                        scroll_wheel(delta, &mut brush_size_modifier);
+                    }
+                }
+                _ => (),
             },
-            
-            Event::RedrawRequested(_) => { // Resizing taskbar
-                draw_taskbar(&mut framebuffer, size.width, size.height);
+            Event::RedrawRequested(_) => {
+                if let AppState::InitialScreen = app_state {
+                    draw_initial_screen(&mut framebuffer, size.width, size.height);
+                } else {
+                    draw_taskbar(&mut framebuffer, size.width, size.height);
+                }
 
                 pixels.frame_mut().copy_from_slice(&framebuffer);
                 pixels.render().unwrap();
@@ -71,56 +129,3 @@ fn main() -> Result<(), Error> {
     });
 }
 
-// Mouse Input Handling :p
-
-fn resize(pixels: &mut Pixels, framebuffer: &mut Vec<u8>, size: &mut PhysicalSize<u32>, new_size: PhysicalSize<u32>) {
-    pixels.resize_surface(new_size.width, new_size.height).expect("Failed to resize surface");
-    pixels.resize_buffer(new_size.width, new_size.height).expect("Failed to resize buffer");
-    *framebuffer = vec![255; (new_size.width * new_size.height * 4) as usize];
-    size.height = new_size.height;
-    size.width = new_size.width;
-}
-
-fn handle_mouse_input(state: ElementState, button: MouseButton, left_button_pressed: &mut bool, last_cursor_position: (i32, i32), current_colour: &mut Colour, framebuffer: &mut Vec<u8>, brush_size_modifier: i32, width: u32, height: u32, window: &winit::window::Window) {
-    if button == MouseButton::Left {
-        if state == ElementState::Pressed {
-            *left_button_pressed = true;
-            let (x, y) = last_cursor_position;
-            let taskbar_start = height - TASKBAR_HEIGHT;
-            if y >= taskbar_start as i32 && y < height as i32 {
-                let button_index = (x / BUTTON_SIZE as i32) as usize;
-                if button_index < COLOURS.len() {
-                    *current_colour = COLOURS[button_index];
-                } else if x >= (width - BUTTON_SIZE) as i32 {
-                    // Clicked on the white square
-                    save_framebuffer_as_png(framebuffer, width, height);
-                }
-            } else {
-                paint(framebuffer, x, y, brush_size_modifier, width, height - TASKBAR_HEIGHT, *current_colour);
-                window.request_redraw();
-            }
-        } else {
-            *left_button_pressed = false;
-        }
-    }
-}
-
-fn move_cursor(position: winit::dpi::PhysicalPosition<f64>, last_cursor_position: &mut (i32, i32), left_button_pressed: bool, framebuffer: &mut Vec<u8>, brush_size_modifier: i32, width: u32, height: u32, current_colour: Colour, window: &winit::window::Window) {
-    let x = position.x as i32;
-    let y = position.y as i32;
-    *last_cursor_position = (x, y);
-    if left_button_pressed {
-        paint(framebuffer, x, y, brush_size_modifier, width, height - TASKBAR_HEIGHT, current_colour);
-        window.request_redraw();
-    }
-}
-
-fn scroll_wheel(delta: MouseScrollDelta, brush_size_modifier: &mut i32) {
-    if let MouseScrollDelta::LineDelta(_, y) = delta {
-        if y > 0.0 {
-            *brush_size_modifier += 1;
-        } else if y < 0.0 {
-            *brush_size_modifier -= 1;
-        }
-    }
-}

@@ -1,5 +1,8 @@
 use crate::constants::*;
 
+// paint.rs
+// This module is just the paint function
+
 pub fn paint(framebuffer: &mut Vec<u8>, x: i32, y: i32, modifier: i32, width: u32, height: u32, colour: Colour) {
     let brush_size = 5 * modifier;
     for dy in 0..brush_size {

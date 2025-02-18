@@ -2,6 +2,9 @@ use rodio::{Decoder, OutputStream, Sink};
 use std::fs::File;
 use std::io::BufReader;
 
+// sound_track.rs
+// This module exists just to play the sound track
+
 pub fn sound_track() {    
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
