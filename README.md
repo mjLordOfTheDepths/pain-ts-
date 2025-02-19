@@ -23,7 +23,7 @@ In essence, the full release of this software will contain an eco-system sandbox
 
 ## Videos and Images
 ![Early Development Image example](src/assets/image.png)  
-https://youtu.be/WnibKvhUoQ0  
+[![Video Thumbnail](https://img.youtube.com/vi/WnibKvhUoQ0/0.jpg)](https://youtu.be/WnibKvhUoQ0)  
 An early development screenshot from the "Classic" gamemode, along with a video showcasing the Classic game mode.
 
 ## What's next ?
