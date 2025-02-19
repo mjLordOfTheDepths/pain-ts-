@@ -22,8 +22,8 @@ This Eden game-mode aims to allow players to draw worlds, creatures, and plants,
 In essence, the full release of this software will contain an eco-system sandbox for the user to play around with.
 
 ## Videos and Images
-![Early Development Image example](src/assets/image.png)
-<video controls src="classic_demo.mp4" title="classic demo"></video>
+![Early Development Image example](src/assets/image.png)  
+https://youtu.be/WnibKvhUoQ0  
 An early development screenshot from the "Classic" gamemode, along with a video showcasing the Classic game mode.
 
 ## What's next ?
