@@ -27,7 +27,7 @@ In essence, the full release of this software will contain an eco-system sandbox
 An early development screenshot from the "Classic" gamemode, along with a video showcasing the Classic game mode.
 
 ## What's next ?
-* Impement world creator
+* Implement world creator
 * Implement fauna and flora creators
 * Implement logic for fauna and flora
 
