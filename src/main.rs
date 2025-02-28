@@ -5,16 +5,18 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{WindowBuilder, Icon};
 use image::GenericImageView;
 use std::thread;
-mod taskbar; use crate::taskbar::draw_taskbar;
+mod taskbar; use crate::taskbar::{draw_taskbar, terrain_taskbar};
 mod constants; use crate::constants::*;
-mod paint; use crate::paint::paint;
-mod sound_track; use crate::sound_track::sound_track;
+mod paint; 
+mod sound_track; 
+use crate::sound_track::sound_track;
 mod draw_screens; use crate::draw_screens::{draw_initial_screen, draw_white_screen};
 mod input; use crate::input::{resize, handle_mouse_input, move_cursor, scroll_wheel};
 
 enum AppState {
     InitialScreen,
     MainLoop,
+    TerrainMode,
 }
 
 // main.rs
@@ -48,9 +50,10 @@ fn main() -> Result<(), Error> {
     let mut last_cursor_position = (0, 0);
     let mut left_button_pressed = false;
     let mut brush_size_modifier = 1;
-    let mut current_colour = COLOURS[0]; // Red
+    let mut current_colour = COLOURS[7]; // White
 
     let mut app_state = AppState::InitialScreen;
+    let mut save_directory = "../my_pics"; // default screenshots
 
     thread::spawn(|| sound_track()); // Spawning the sound track thread
 
@@ -71,12 +74,34 @@ fn main() -> Result<(), Error> {
                             let rect_height = (size.height as f32 * 0.15) as i32;
                             let rect_x = (size.width as i32 - rect_width) / 2;
                             let rect_y = (size.height as i32 - rect_height) / 2;
+                            let terrain_y = rect_y + rect_height + 25; // 25 pixels below the first classic image
                             if x >= rect_x && x <= rect_x + rect_width && y >= rect_y && y <= rect_y + rect_height {
                                 app_state = AppState::MainLoop;
                                 draw_white_screen(&mut framebuffer, size.width, size.height);
+                            } else if x >= rect_x && x <= rect_x + rect_width && y >= terrain_y && y <= terrain_y + rect_height {
+                                app_state = AppState::TerrainMode;
+                                draw_white_screen(&mut framebuffer, size.width, size.height);
+                                terrain_taskbar(&mut framebuffer, size.width, size.height);
                             }
                         }
                     } else {
+                        let colours = if let AppState::TerrainMode = app_state {
+                            save_directory = "../terrain";
+                            &[
+                                COLOURS[1],  // Of
+                                COLOURS[3],  // Gave
+                                COLOURS[4],  // Battle
+                                COLOURS[7],  // Wow
+                                COLOURS[9],  // Light blue
+                                COLOURS[10], // Grey
+                                COLOURS[11], // Brown
+                                COLOURS[12], // Dark Green
+                            ]
+                        } else {
+                            //save_directory = "../my_pics";
+                            &COLOURS[..7]
+                        };
+
                         handle_mouse_input(
                             state,
                             button,
@@ -88,6 +113,8 @@ fn main() -> Result<(), Error> {
                             size.width,
                             size.height,
                             &window,
+                            colours,
+                            save_directory,
                         );
                     }
                 }
@@ -105,10 +132,24 @@ fn main() -> Result<(), Error> {
                             current_colour,
                             &window,
                         );
+                    } else if let AppState::TerrainMode = app_state {
+                        move_cursor(
+                            position,
+                            &mut last_cursor_position,
+                            left_button_pressed,
+                            &mut framebuffer,
+                            brush_size_modifier,
+                            size.width,
+                            size.height,
+                            current_colour,
+                            &window,
+                        );
                     }
                 }
                 WindowEvent::MouseWheel { delta, .. } => {
                     if let AppState::MainLoop = app_state {
+                        scroll_wheel(delta, &mut brush_size_modifier);
+                    } else if let AppState::TerrainMode = app_state {
                         scroll_wheel(delta, &mut brush_size_modifier);
                     }
                 }
@@ -117,6 +158,8 @@ fn main() -> Result<(), Error> {
             Event::RedrawRequested(_) => {
                 if let AppState::InitialScreen = app_state {
                     draw_initial_screen(&mut framebuffer, size.width, size.height);
+                } else if let AppState::TerrainMode = app_state {
+                    terrain_taskbar(&mut framebuffer, size.width, size.height);
                 } else {
                     draw_taskbar(&mut framebuffer, size.width, size.height);
                 }

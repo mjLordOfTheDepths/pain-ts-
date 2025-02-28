@@ -16,6 +16,10 @@ pub static CLASSIC_IMAGE: Lazy<image::RgbaImage> = Lazy::new(|| {
     image::open("assets/classic.png").expect("Failed to open classic image").into_rgba8()
 });
 
+pub static TERRAIN_IMAGE: Lazy<image::RgbaImage> = Lazy::new(|| {
+    image::open("assets/terrain.png").expect("Failed to open terrain image").into_rgba8()
+});
+
 #[derive(Clone, Copy)]
 pub struct Colour {
     pub r: u8,

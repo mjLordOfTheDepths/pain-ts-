@@ -1,10 +1,9 @@
 use pixels::Pixels;
 use winit::dpi::PhysicalSize;
-use winit::event::ElementState;
-use winit::event::MouseButton;
-use winit::event::MouseScrollDelta;
+use winit::event::{ElementState, MouseButton, MouseScrollDelta};
+use winit::window::Window;
 use crate::constants::*;
-use crate::paint;
+use crate::paint::paint;
 use crate::taskbar::save_framebuffer_as_png;
 
 // input.rs
@@ -18,7 +17,20 @@ pub fn resize(pixels: &mut Pixels, framebuffer: &mut Vec<u8>, size: &mut Physica
     size.width = new_size.width;
 }
 
-pub fn handle_mouse_input(state: ElementState, button: MouseButton, left_button_pressed: &mut bool, last_cursor_position: (i32, i32), current_colour: &mut Colour, framebuffer: &mut Vec<u8>, brush_size_modifier: i32, width: u32, height: u32, window: &winit::window::Window) {
+pub fn handle_mouse_input(
+    state: ElementState,
+    button: MouseButton,
+    left_button_pressed: &mut bool,
+    last_cursor_position: (i32, i32),
+    current_colour: &mut Colour,
+    framebuffer: &mut Vec<u8>,
+    brush_size_modifier: i32,
+    width: u32,
+    height: u32,
+    window: &Window,
+    colours: &[Colour],
+    save_directory: &str,
+) {
     if button == MouseButton::Left {
         if state == ElementState::Pressed {
             *left_button_pressed = true;
@@ -26,11 +38,11 @@ pub fn handle_mouse_input(state: ElementState, button: MouseButton, left_button_
             let taskbar_start = height - TASKBAR_HEIGHT;
             if y >= taskbar_start as i32 && y < height as i32 {
                 let button_index = (x / BUTTON_SIZE as i32) as usize;
-                if button_index < COLOURS.len() {
-                    *current_colour = COLOURS[button_index];
+                if button_index < colours.len() {
+                    *current_colour = colours[button_index];
                 } else if x >= (width - BUTTON_SIZE) as i32 {
                     // Clicked on the save icon
-                    save_framebuffer_as_png(framebuffer, width, height);
+                    save_framebuffer_as_png(framebuffer, width, height, save_directory);
                 }
             } else {
                 paint(framebuffer, x, y, brush_size_modifier, width, height - TASKBAR_HEIGHT, *current_colour);
@@ -42,7 +54,17 @@ pub fn handle_mouse_input(state: ElementState, button: MouseButton, left_button_
     }
 }
 
-pub fn move_cursor(position: winit::dpi::PhysicalPosition<f64>, last_cursor_position: &mut (i32, i32), left_button_pressed: bool, framebuffer: &mut Vec<u8>, brush_size_modifier: i32, width: u32, height: u32, current_colour: Colour, window: &winit::window::Window) {
+pub fn move_cursor(
+    position: winit::dpi::PhysicalPosition<f64>,
+    last_cursor_position: &mut (i32, i32),
+    left_button_pressed: bool,
+    framebuffer: &mut Vec<u8>,
+    brush_size_modifier: i32,
+    width: u32,
+    height: u32,
+    current_colour: Colour,
+    window: &Window,
+) {
     let x = position.x as i32;
     let y = position.y as i32;
     *last_cursor_position = (x, y);
