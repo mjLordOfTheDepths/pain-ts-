@@ -8,8 +8,10 @@ Class Group: TU858-2
 
 Github: https://github.com/mjlordofthedepths
 
-# Video
-
+# Videos
+## Trailer
+[![Video Thumbnail](https://img.youtube.com/vi/7HU2nEYecM0/0.jpg)](https://youtu.be/7HU2nEYecM0)
+## Early Development Video
 [![Video Thumbnail](https://img.youtube.com/vi/WnibKvhUoQ0/0.jpg)](https://youtu.be/WnibKvhUoQ0)
 
 # Screenshots

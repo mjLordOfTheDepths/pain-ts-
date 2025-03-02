@@ -10,13 +10,14 @@ mod constants; use crate::constants::*;
 mod paint; 
 mod sound_track; 
 use crate::sound_track::sound_track;
-mod draw_screens; use crate::draw_screens::{draw_initial_screen, draw_white_screen};
+mod draw_screens; use crate::draw_screens::{draw_initial_screen, draw_white_screen, draw_magenta_screen};
 mod input; use crate::input::{resize, handle_mouse_input, move_cursor, scroll_wheel};
 
 enum AppState {
     InitialScreen,
     MainLoop,
     TerrainMode,
+    LifeMode,
 }
 
 // main.rs
@@ -75,6 +76,7 @@ fn main() -> Result<(), Error> {
                             let rect_x = (size.width as i32 - rect_width) / 2;
                             let rect_y = (size.height as i32 - rect_height) / 2;
                             let terrain_y = rect_y + rect_height + 25; // 25 pixels below the first classic image
+                            let life_y = terrain_y + rect_height + 25; // 25 pixels below the terrain image
                             if x >= rect_x && x <= rect_x + rect_width && y >= rect_y && y <= rect_y + rect_height {
                                 app_state = AppState::MainLoop;
                                 draw_white_screen(&mut framebuffer, size.width, size.height);
@@ -82,6 +84,10 @@ fn main() -> Result<(), Error> {
                                 app_state = AppState::TerrainMode;
                                 draw_white_screen(&mut framebuffer, size.width, size.height);
                                 terrain_taskbar(&mut framebuffer, size.width, size.height);
+                            } else if x >= rect_x && x <= rect_x + rect_width && y >= life_y && y <= life_y + rect_height {
+                                app_state = AppState::LifeMode;
+                                draw_magenta_screen(&mut framebuffer, size.width, size.height);
+                                draw_taskbar(&mut framebuffer, size.width, size.height);
                             }
                         }
                     } else {
@@ -99,7 +105,7 @@ fn main() -> Result<(), Error> {
                             ]
                         } else {
                             //save_directory = "../my_pics";
-                            &COLOURS[..7]
+                            &COLOURS[..COLOURS.len()]
                         };
 
                         handle_mouse_input(
@@ -144,12 +150,26 @@ fn main() -> Result<(), Error> {
                             current_colour,
                             &window,
                         );
+                    } else if let AppState::LifeMode = app_state {
+                        move_cursor(
+                            position,
+                            &mut last_cursor_position,
+                            left_button_pressed,
+                            &mut framebuffer,
+                            brush_size_modifier,
+                            size.width,
+                            size.height,
+                            current_colour,
+                            &window,
+                        );
                     }
                 }
                 WindowEvent::MouseWheel { delta, .. } => {
                     if let AppState::MainLoop = app_state {
                         scroll_wheel(delta, &mut brush_size_modifier);
                     } else if let AppState::TerrainMode = app_state {
+                        scroll_wheel(delta, &mut brush_size_modifier);
+                    } else if let AppState::LifeMode = app_state {
                         scroll_wheel(delta, &mut brush_size_modifier);
                     }
                 }
@@ -160,6 +180,8 @@ fn main() -> Result<(), Error> {
                     draw_initial_screen(&mut framebuffer, size.width, size.height);
                 } else if let AppState::TerrainMode = app_state {
                     terrain_taskbar(&mut framebuffer, size.width, size.height);
+                } else if let AppState::LifeMode = app_state {
+                    draw_taskbar(&mut framebuffer, size.width, size.height);
                 } else {
                     draw_taskbar(&mut framebuffer, size.width, size.height);
                 }
